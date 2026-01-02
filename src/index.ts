@@ -19,11 +19,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
-  CallToolRequestSchema,
-  ListResourcesResult,
-  ReadResourceResult,
-  ResourceSchema,
-  ToolSchema
+  CallToolRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import axios, { AxiosInstance } from "axios";
