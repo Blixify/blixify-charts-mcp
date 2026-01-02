@@ -1,8 +1,8 @@
 {
-  "name": "metabase-server",
+  "name": "blixify-charts-mcp",
   "version": "0.1.0",
-  "description": "A Model Context Protocol server",
-  "private": true,
+  "description": "Blixify Charts MCP",
+  "private": false,
   "type": "module",
   "bin": {
     "metabase-server": "./build/index.js"
