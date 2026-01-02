@@ -1,11 +1,11 @@
 {
   "name": "blixify-charts-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Blixify Charts MCP",
   "private": false,
   "type": "module",
   "bin": {
-    "metabase-server": "./build/index.js"
+    "blixify-charts-mcp": "./build/index.js"
   },
   "files": [
     "build"
@@ -19,7 +19,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.1",
     "abort-controller": "^3.0.0",
-    "axios": "^1.8.2"
+    "axios": "^1.8.2",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/axios": "^0.14.4",
