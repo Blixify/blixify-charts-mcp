@@ -755,6 +755,7 @@ class MetabaseServer {
                     table.fields?.map((field: any) => ({
                       id: field.id,
                       name: field.name,
+                      database_type: field.database_type,
                     })) || [],
                 })) || [],
             };
