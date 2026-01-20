@@ -463,7 +463,8 @@ class MetabaseServer {
           },
           {
             name: "execute_query",
-            description: "Execute a SQL query against a Metabase database",
+            description:
+              "Execute a SQL query against a Metabase database, or MongoDB aggregation pipeline against MongoDB databases",
             inputSchema: {
               type: "object",
               properties: {
@@ -473,7 +474,13 @@ class MetabaseServer {
                 },
                 query: {
                   type: "string",
-                  description: "SQL query to execute",
+                  description:
+                    "SQL query for SQL databases, or MongoDB aggregation pipeline as JSON string (e.g., '[{\"$limit\": 10}]') for MongoDB databases",
+                },
+                collection: {
+                  type: "string",
+                  description:
+                    "MongoDB collection name (required for MongoDB databases, e.g., 'kpj-user-profiles'). Ignored for SQL databases.",
                 },
                 native_parameters: {
                   type: "array",
@@ -821,6 +828,7 @@ class MetabaseServer {
           case "execute_query": {
             const databaseId = request.params?.arguments?.database_id;
             const query = request.params?.arguments?.query;
+            const collectionParam = request.params?.arguments?.collection;
             const nativeParameters =
               request.params?.arguments?.native_parameters || [];
 
@@ -832,22 +840,50 @@ class MetabaseServer {
             }
 
             if (!query) {
-              throw new McpError(
-                ErrorCode.InvalidParams,
-                "SQL query is required",
-              );
+              throw new McpError(ErrorCode.InvalidParams, "Query is required");
             }
 
-            // 构建查询请求体
-            const queryData = {
-              type: "native",
-              native: {
-                query: query,
-                template_tags: {},
-              },
-              parameters: nativeParameters,
-              database: databaseId,
-            };
+            // Get database details to check engine type
+            const dbResponse = await this.axiosInstance.get(
+              `/api/database/${databaseId}`,
+            );
+            const dbEngine = dbResponse.data.engine;
+
+            let queryData;
+
+            if (dbEngine === "mongo") {
+              // MongoDB query format
+              if (!collectionParam) {
+                throw new McpError(
+                  ErrorCode.InvalidParams,
+                  "Collection name is required for MongoDB queries",
+                );
+              }
+
+              const queryStr = String(query);
+
+              queryData = {
+                type: "native",
+                native: {
+                  collection: collectionParam,
+                  query: queryStr,
+                  template_tags: {},
+                },
+                parameters: nativeParameters,
+                database: databaseId,
+              };
+            } else {
+              // SQL query format
+              queryData = {
+                type: "native",
+                native: {
+                  query: query,
+                  template_tags: {},
+                },
+                parameters: nativeParameters,
+                database: databaseId,
+              };
+            }
 
             const response = await this.axiosInstance.post(
               "/api/dataset",
