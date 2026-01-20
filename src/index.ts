@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // 为老版本 Node.js 添加 AbortController polyfill
-import AbortController from 'abort-controller';
+import AbortController from "abort-controller";
 global.AbortController = global.AbortController || AbortController;
 
 /**
@@ -17,25 +17,25 @@ global.AbortController = global.AbortController || AbortController;
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
+  CallToolRequestSchema,
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
-  CallToolRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
 import axios, { AxiosInstance } from "axios";
+import { z } from "zod";
 
 // 自定义错误枚举
 enum ErrorCode {
   InternalError = "internal_error",
   InvalidRequest = "invalid_request",
   InvalidParams = "invalid_params",
-  MethodNotFound = "method_not_found"
+  MethodNotFound = "method_not_found",
 }
 
 // 自定义错误类
 class McpError extends Error {
   code: ErrorCode;
-  
+
   constructor(code: ErrorCode, message: string) {
     super(message);
     this.code = code;
@@ -49,19 +49,22 @@ const METABASE_USERNAME = process.env.METABASE_USERNAME;
 const METABASE_PASSWORD = process.env.METABASE_PASSWORD;
 const METABASE_API_KEY = process.env.METABASE_API_KEY;
 
-if (!METABASE_URL || (!METABASE_API_KEY && (!METABASE_USERNAME || !METABASE_PASSWORD))) {
+if (
+  !METABASE_URL ||
+  (!METABASE_API_KEY && (!METABASE_USERNAME || !METABASE_PASSWORD))
+) {
   throw new Error(
-    "Either (METABASE_URL and METABASE_API_KEY) or (METABASE_URL, METABASE_USERNAME, and METABASE_PASSWORD) environment variables are required"
+    "Either (METABASE_URL and METABASE_API_KEY) or (METABASE_URL, METABASE_USERNAME, and METABASE_PASSWORD) environment variables are required",
   );
 }
 
 // 创建自定义 Schema 对象，使用 z.object
 const ListResourceTemplatesRequestSchema = z.object({
-  method: z.literal("resources/list_templates")
+  method: z.literal("resources/list_templates"),
 });
 
 const ListToolsRequestSchema = z.object({
-  method: z.literal("tools/list")
+  method: z.literal("tools/list"),
 });
 
 class MetabaseServer {
@@ -80,7 +83,7 @@ class MetabaseServer {
           resources: {},
           tools: {},
         },
-      }
+      },
     );
 
     this.axiosInstance = axios.create({
@@ -91,29 +94,35 @@ class MetabaseServer {
     });
 
     if (METABASE_API_KEY) {
-      this.logInfo('Using Metabase API Key for authentication.');
-      this.axiosInstance.defaults.headers.common['X-API-Key'] = METABASE_API_KEY;
+      this.logInfo("Using Metabase API Key for authentication.");
+      this.axiosInstance.defaults.headers.common["X-API-Key"] =
+        METABASE_API_KEY;
       this.sessionToken = "api_key_used"; // Indicate API key is in use
     } else if (METABASE_USERNAME && METABASE_PASSWORD) {
-      this.logInfo('Using Metabase username/password for authentication.');
+      this.logInfo("Using Metabase username/password for authentication.");
       // Existing session token logic will apply
     } else {
       // This case should ideally be caught by the initial environment variable check
       // but as a safeguard:
-      this.logError('Metabase authentication credentials not configured properly.', {});
-      throw new Error("Metabase authentication credentials not provided or incomplete.");
+      this.logError(
+        "Metabase authentication credentials not configured properly.",
+        {},
+      );
+      throw new Error(
+        "Metabase authentication credentials not provided or incomplete.",
+      );
     }
 
     this.setupResourceHandlers();
     this.setupToolHandlers();
-    
+
     // Enhanced error handling with logging
     this.server.onerror = (error: Error) => {
-      this.logError('Server Error', error);
+      this.logError("Server Error", error);
     };
 
-    process.on('SIGINT', async () => {
-      this.logInfo('Shutting down server...');
+    process.on("SIGINT", async () => {
+      this.logInfo("Shutting down server...");
       await this.server.close();
       process.exit(0);
     });
@@ -123,9 +132,9 @@ class MetabaseServer {
   private logInfo(message: string, data?: unknown) {
     const logMessage = {
       timestamp: new Date().toISOString(),
-      level: 'info',
+      level: "info",
       message,
-      data
+      data,
     };
     console.error(JSON.stringify(logMessage));
     // MCP SDK changed, can't directly access session
@@ -139,19 +148,24 @@ class MetabaseServer {
 
   private logError(message: string, error: unknown) {
     const errorObj = error as Error;
-    const apiError = error as { response?: { data?: { message?: string } }, message?: string };
-    
+    const apiError = error as {
+      response?: { data?: { message?: string } };
+      message?: string;
+    };
+
     const logMessage = {
       timestamp: new Date().toISOString(),
-      level: 'error',
+      level: "error",
       message,
-      error: errorObj.message || 'Unknown error',
-      stack: errorObj.stack
+      error: errorObj.message || "Unknown error",
+      stack: errorObj.stack,
     };
     console.error(JSON.stringify(logMessage));
     // MCP SDK changed, can't directly access session
     try {
-      console.error(`ERROR: ${message} - ${errorObj.message || 'Unknown error'}`);
+      console.error(
+        `ERROR: ${message} - ${errorObj.message || "Unknown error"}`,
+      );
     } catch (e) {
       // Ignore if session not available
     }
@@ -161,30 +175,32 @@ class MetabaseServer {
    * 获取 Metabase 会话令牌
    */
   private async getSessionToken(): Promise<string> {
-    if (this.sessionToken) { // Handles both API key ("api_key_used") and actual session tokens
+    if (this.sessionToken) {
+      // Handles both API key ("api_key_used") and actual session tokens
       return this.sessionToken;
     }
 
     // This part should only be reached if using username/password and sessionToken is null
-    this.logInfo('Authenticating with Metabase using username/password...');
+    this.logInfo("Authenticating with Metabase using username/password...");
     try {
-      const response = await this.axiosInstance.post('/api/session', {
+      const response = await this.axiosInstance.post("/api/session", {
         username: METABASE_USERNAME,
         password: METABASE_PASSWORD,
       });
 
       this.sessionToken = response.data.id;
-      
+
       // 设置默认请求头
-      this.axiosInstance.defaults.headers.common['X-Metabase-Session'] = this.sessionToken;
-      
-      this.logInfo('Successfully authenticated with Metabase');
+      this.axiosInstance.defaults.headers.common["X-Metabase-Session"] =
+        this.sessionToken;
+
+      this.logInfo("Successfully authenticated with Metabase");
       return this.sessionToken as string;
     } catch (error) {
-      this.logError('Authentication failed', error);
+      this.logError("Authentication failed", error);
       throw new McpError(
         ErrorCode.InternalError,
-        'Failed to authenticate with Metabase'
+        "Failed to authenticate with Metabase",
       );
     }
   }
@@ -193,130 +209,156 @@ class MetabaseServer {
    * 设置资源处理程序
    */
   private setupResourceHandlers() {
-    this.server.setRequestHandler(ListResourcesRequestSchema, async (request) => {
-      this.logInfo('Listing resources...', { requestStructure: JSON.stringify(request) });
-      if (!METABASE_API_KEY) {
-        await this.getSessionToken();
-      }
+    this.server.setRequestHandler(
+      ListResourcesRequestSchema,
+      async (request) => {
+        this.logInfo("Listing resources...", {
+          requestStructure: JSON.stringify(request),
+        });
+        if (!METABASE_API_KEY) {
+          await this.getSessionToken();
+        }
 
-      try {
-        // 获取仪表板列表
-        const dashboardsResponse = await this.axiosInstance.get('/api/dashboard');
-        
-        this.logInfo('Successfully listed resources', { count: dashboardsResponse.data.length });
-        // 将仪表板作为资源返回
-        return {
-          resources: dashboardsResponse.data.map((dashboard: any) => ({
-            uri: `metabase://dashboard/${dashboard.id}`,
-            mimeType: "application/json",
-            name: dashboard.name,
-            description: `Metabase dashboard: ${dashboard.name}`
-          }))
-        };
-      } catch (error) {
-        this.logError('Failed to list resources', error);
-        throw new McpError(
-          ErrorCode.InternalError,
-          'Failed to list Metabase resources'
-        );
-      }
-    });
+        try {
+          // 获取仪表板列表
+          const dashboardsResponse =
+            await this.axiosInstance.get("/api/dashboard");
 
-    // 资源模板
-    this.server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => {
-      return {
-        resourceTemplates: [
-          {
-            uriTemplate: 'metabase://dashboard/{id}',
-            name: 'Dashboard by ID',
-            mimeType: 'application/json',
-            description: 'Get a Metabase dashboard by its ID',
-          },
-          {
-            uriTemplate: 'metabase://card/{id}',
-            name: 'Card by ID',
-            mimeType: 'application/json',
-            description: 'Get a Metabase question/card by its ID',
-          },
-          {
-            uriTemplate: 'metabase://database/{id}',
-            name: 'Database by ID',
-            mimeType: 'application/json',
-            description: 'Get a Metabase database by its ID',
-          },
-        ],
-      };
-    });
-
-    // 读取资源
-    this.server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      this.logInfo('Reading resource...', { requestStructure: JSON.stringify(request) });
-      if (!METABASE_API_KEY) {
-        await this.getSessionToken();
-      }
-
-      const uri = request.params?.uri;
-      let match;
-
-      try {
-        // 处理仪表板资源
-        if ((match = uri.match(/^metabase:\/\/dashboard\/(\d+)$/))) {
-          const dashboardId = match[1];
-          const response = await this.axiosInstance.get(`/api/dashboard/${dashboardId}`);
-          
+          this.logInfo("Successfully listed resources", {
+            count: dashboardsResponse.data.length,
+          });
+          // 将仪表板作为资源返回
           return {
-            contents: [{
-              uri: request.params?.uri,
+            resources: dashboardsResponse.data.map((dashboard: any) => ({
+              uri: `metabase://dashboard/${dashboard.id}`,
               mimeType: "application/json",
-              text: JSON.stringify(response.data, null, 2)
-            }]
+              name: dashboard.name,
+              description: `Metabase dashboard: ${dashboard.name}`,
+            })),
           };
-        }
-        
-        // 处理问题/卡片资源
-        else if ((match = uri.match(/^metabase:\/\/card\/(\d+)$/))) {
-          const cardId = match[1];
-          const response = await this.axiosInstance.get(`/api/card/${cardId}`);
-          
-          return {
-            contents: [{
-              uri: request.params?.uri,
-              mimeType: "application/json",
-              text: JSON.stringify(response.data, null, 2)
-            }]
-          };
-        }
-        
-        // 处理数据库资源
-        else if ((match = uri.match(/^metabase:\/\/database\/(\d+)$/))) {
-          const databaseId = match[1];
-          const response = await this.axiosInstance.get(`/api/database/${databaseId}`);
-          
-          return {
-            contents: [{
-              uri: request.params?.uri,
-              mimeType: "application/json",
-              text: JSON.stringify(response.data, null, 2)
-            }]
-          };
-        }
-        
-        else {
-          throw new McpError(
-            ErrorCode.InvalidRequest,
-            `Invalid URI format: ${uri}`
-          );
-        }
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
+        } catch (error) {
+          this.logError("Failed to list resources", error);
           throw new McpError(
             ErrorCode.InternalError,
-            `Metabase API error: ${error.response?.data?.message || error.message}`
+            "Failed to list Metabase resources",
           );
         }
-        throw error;
-      }
-    });
+      },
+    );
+
+    // 资源模板
+    this.server.setRequestHandler(
+      ListResourceTemplatesRequestSchema,
+      async () => {
+        return {
+          resourceTemplates: [
+            {
+              uriTemplate: "metabase://dashboard/{id}",
+              name: "Dashboard by ID",
+              mimeType: "application/json",
+              description: "Get a Metabase dashboard by its ID",
+            },
+            {
+              uriTemplate: "metabase://card/{id}",
+              name: "Card by ID",
+              mimeType: "application/json",
+              description: "Get a Metabase question/card by its ID",
+            },
+            {
+              uriTemplate: "metabase://database/{id}",
+              name: "Database by ID",
+              mimeType: "application/json",
+              description: "Get a Metabase database by its ID",
+            },
+          ],
+        };
+      },
+    );
+
+    // 读取资源
+    this.server.setRequestHandler(
+      ReadResourceRequestSchema,
+      async (request) => {
+        this.logInfo("Reading resource...", {
+          requestStructure: JSON.stringify(request),
+        });
+        if (!METABASE_API_KEY) {
+          await this.getSessionToken();
+        }
+
+        const uri = request.params?.uri;
+        let match;
+
+        try {
+          // 处理仪表板资源
+          if ((match = uri.match(/^metabase:\/\/dashboard\/(\d+)$/))) {
+            const dashboardId = match[1];
+            const response = await this.axiosInstance.get(
+              `/api/dashboard/${dashboardId}`,
+            );
+
+            return {
+              contents: [
+                {
+                  uri: request.params?.uri,
+                  mimeType: "application/json",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          }
+
+          // 处理问题/卡片资源
+          else if ((match = uri.match(/^metabase:\/\/card\/(\d+)$/))) {
+            const cardId = match[1];
+            const response = await this.axiosInstance.get(
+              `/api/card/${cardId}`,
+            );
+
+            return {
+              contents: [
+                {
+                  uri: request.params?.uri,
+                  mimeType: "application/json",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          }
+
+          // 处理数据库资源
+          else if ((match = uri.match(/^metabase:\/\/database\/(\d+)$/))) {
+            const databaseId = match[1];
+            const response = await this.axiosInstance.get(
+              `/api/database/${databaseId}`,
+            );
+
+            return {
+              contents: [
+                {
+                  uri: request.params?.uri,
+                  mimeType: "application/json",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          } else {
+            throw new McpError(
+              ErrorCode.InvalidRequest,
+              `Invalid URI format: ${uri}`,
+            );
+          }
+        } catch (error) {
+          if (axios.isAxiosError(error)) {
+            throw new McpError(
+              ErrorCode.InternalError,
+              `Metabase API error: ${error.response?.data?.message || error.message}`,
+            );
+          }
+          throw error;
+        }
+      },
+    );
   }
 
   /**
@@ -332,8 +374,8 @@ class MetabaseServer {
             description: "List all dashboards in Metabase",
             inputSchema: {
               type: "object",
-              properties: {}
-            }
+              properties: {},
+            },
           },
           {
             name: "list_cards",
@@ -343,18 +385,49 @@ class MetabaseServer {
               properties: {
                 f: {
                   type: "string",
-                  description: "Optional filter function, possible values: archived, table, database, using_model, bookmarked, using_segment, all, mine"
-                }
-              }
-            }
+                  description:
+                    "Optional filter function, possible values: archived, table, database, using_model, bookmarked, using_segment, all, mine",
+                },
+              },
+            },
           },
           {
             name: "list_databases",
             description: "List all databases in Metabase",
             inputSchema: {
               type: "object",
-              properties: {}
-            }
+              properties: {},
+            },
+          },
+          {
+            name: "get_database",
+            description:
+              "Get detailed information about a specific Metabase database including tables and schema",
+            inputSchema: {
+              type: "object",
+              properties: {
+                database_id: {
+                  type: "number",
+                  description: "ID of the database",
+                },
+              },
+              required: ["database_id"],
+            },
+          },
+          {
+            name: "get_database_metadata",
+            description:
+              "Get complete metadata for a database including all tables, fields, and schema information",
+            inputSchema: {
+              type: "object",
+              properties: {
+                database_id: {
+                  type: "number",
+                  description: "ID of the database",
+                },
+              },
+              required: ["database_id"],
+            },
           },
           {
             name: "execute_card",
@@ -364,15 +437,15 @@ class MetabaseServer {
               properties: {
                 card_id: {
                   type: "number",
-                  description: "ID of the card/question to execute"
+                  description: "ID of the card/question to execute",
                 },
                 parameters: {
                   type: "object",
-                  description: "Optional parameters for the query"
-                }
+                  description: "Optional parameters for the query",
+                },
               },
-              required: ["card_id"]
-            }
+              required: ["card_id"],
+            },
           },
           {
             name: "get_dashboard_cards",
@@ -382,11 +455,11 @@ class MetabaseServer {
               properties: {
                 dashboard_id: {
                   type: "number",
-                  description: "ID of the dashboard"
-                }
+                  description: "ID of the dashboard",
+                },
               },
-              required: ["dashboard_id"]
-            }
+              required: ["dashboard_id"],
+            },
           },
           {
             name: "execute_query",
@@ -396,22 +469,22 @@ class MetabaseServer {
               properties: {
                 database_id: {
                   type: "number",
-                  description: "ID of the database to query"
+                  description: "ID of the database to query",
                 },
                 query: {
                   type: "string",
-                  description: "SQL query to execute"
+                  description: "SQL query to execute",
                 },
                 native_parameters: {
                   type: "array",
                   description: "Optional parameters for the query",
                   items: {
-                    type: "object"
-                  }
-                }
+                    type: "object",
+                  },
+                },
               },
-              required: ["database_id", "query"]
-            }
+              required: ["database_id", "query"],
+            },
           },
           {
             name: "create_card",
@@ -420,14 +493,36 @@ class MetabaseServer {
               type: "object",
               properties: {
                 name: { type: "string", description: "Name of the card" },
-                dataset_query: { type: "object", description: "The query for the card (e.g., MBQL or native query)" },
-                display: { type: "string", description: "Display type (e.g., 'table', 'line', 'bar')" },
-                visualization_settings: { type: "object", description: "Settings for the visualization" },
-                collection_id: { type: "number", description: "Optional ID of the collection to save the card in" },
-                description: { type: "string", description: "Optional description for the card" }
+                dataset_query: {
+                  type: "object",
+                  description:
+                    "The query for the card (e.g., MBQL or native query)",
+                },
+                display: {
+                  type: "string",
+                  description: "Display type (e.g., 'table', 'line', 'bar')",
+                },
+                visualization_settings: {
+                  type: "object",
+                  description: "Settings for the visualization",
+                },
+                collection_id: {
+                  type: "number",
+                  description:
+                    "Optional ID of the collection to save the card in",
+                },
+                description: {
+                  type: "string",
+                  description: "Optional description for the card",
+                },
               },
-              required: ["name", "dataset_query", "display", "visualization_settings"]
-            }
+              required: [
+                "name",
+                "dataset_query",
+                "display",
+                "visualization_settings",
+              ],
+            },
           },
           {
             name: "update_card",
@@ -435,17 +530,32 @@ class MetabaseServer {
             inputSchema: {
               type: "object",
               properties: {
-                card_id: { type: "number", description: "ID of the card to update" },
+                card_id: {
+                  type: "number",
+                  description: "ID of the card to update",
+                },
                 name: { type: "string", description: "New name for the card" },
-                dataset_query: { type: "object", description: "New query for the card" },
+                dataset_query: {
+                  type: "object",
+                  description: "New query for the card",
+                },
                 display: { type: "string", description: "New display type" },
-                visualization_settings: { type: "object", description: "New visualization settings" },
-                collection_id: { type: "number", description: "New collection ID" },
+                visualization_settings: {
+                  type: "object",
+                  description: "New visualization settings",
+                },
+                collection_id: {
+                  type: "number",
+                  description: "New collection ID",
+                },
                 description: { type: "string", description: "New description" },
-                archived: { type: "boolean", description: "Set to true to archive the card" }
+                archived: {
+                  type: "boolean",
+                  description: "Set to true to archive the card",
+                },
               },
-              required: ["card_id"]
-            }
+              required: ["card_id"],
+            },
           },
           {
             name: "delete_card",
@@ -453,11 +563,19 @@ class MetabaseServer {
             inputSchema: {
               type: "object",
               properties: {
-                card_id: { type: "number", description: "ID of the card to delete" },
-                hard_delete: { type: "boolean", description: "Set to true for hard delete, false (default) for archive", default: false }
+                card_id: {
+                  type: "number",
+                  description: "ID of the card to delete",
+                },
+                hard_delete: {
+                  type: "boolean",
+                  description:
+                    "Set to true for hard delete, false (default) for archive",
+                  default: false,
+                },
               },
-              required: ["card_id"]
-            }
+              required: ["card_id"],
+            },
           },
           {
             name: "create_dashboard",
@@ -466,12 +584,23 @@ class MetabaseServer {
               type: "object",
               properties: {
                 name: { type: "string", description: "Name of the dashboard" },
-                description: { type: "string", description: "Optional description for the dashboard" },
-                parameters: { type: "array", description: "Optional parameters for the dashboard", items: { type: "object" } },
-                collection_id: { type: "number", description: "Optional ID of the collection to save the dashboard in" }
+                description: {
+                  type: "string",
+                  description: "Optional description for the dashboard",
+                },
+                parameters: {
+                  type: "array",
+                  description: "Optional parameters for the dashboard",
+                  items: { type: "object" },
+                },
+                collection_id: {
+                  type: "number",
+                  description:
+                    "Optional ID of the collection to save the dashboard in",
+                },
               },
-              required: ["name"]
-            }
+              required: ["name"],
+            },
           },
           {
             name: "update_dashboard",
@@ -479,15 +608,34 @@ class MetabaseServer {
             inputSchema: {
               type: "object",
               properties: {
-                dashboard_id: { type: "number", description: "ID of the dashboard to update" },
-                name: { type: "string", description: "New name for the dashboard" },
-                description: { type: "string", description: "New description for the dashboard" },
-                parameters: { type: "array", description: "New parameters for the dashboard", items: { type: "object" } },
-                collection_id: { type: "number", description: "New collection ID" },
-                archived: { type: "boolean", description: "Set to true to archive the dashboard" }
+                dashboard_id: {
+                  type: "number",
+                  description: "ID of the dashboard to update",
+                },
+                name: {
+                  type: "string",
+                  description: "New name for the dashboard",
+                },
+                description: {
+                  type: "string",
+                  description: "New description for the dashboard",
+                },
+                parameters: {
+                  type: "array",
+                  description: "New parameters for the dashboard",
+                  items: { type: "object" },
+                },
+                collection_id: {
+                  type: "number",
+                  description: "New collection ID",
+                },
+                archived: {
+                  type: "boolean",
+                  description: "Set to true to archive the dashboard",
+                },
               },
-              required: ["dashboard_id"]
-            }
+              required: ["dashboard_id"],
+            },
           },
           {
             name: "delete_dashboard",
@@ -495,18 +643,28 @@ class MetabaseServer {
             inputSchema: {
               type: "object",
               properties: {
-                dashboard_id: { type: "number", description: "ID of the dashboard to delete" },
-                hard_delete: { type: "boolean", description: "Set to true for hard delete, false (default) for archive", default: false }
+                dashboard_id: {
+                  type: "number",
+                  description: "ID of the dashboard to delete",
+                },
+                hard_delete: {
+                  type: "boolean",
+                  description:
+                    "Set to true for hard delete, false (default) for archive",
+                  default: false,
+                },
               },
-              required: ["dashboard_id"]
-            }
-          }
-        ]
+              required: ["dashboard_id"],
+            },
+          },
+        ],
       };
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      this.logInfo('Calling tool...', { requestStructure: JSON.stringify(request) });
+      this.logInfo("Calling tool...", {
+        requestStructure: JSON.stringify(request),
+      });
       if (!METABASE_API_KEY) {
         await this.getSessionToken();
       }
@@ -514,12 +672,14 @@ class MetabaseServer {
       try {
         switch (request.params?.name) {
           case "list_dashboards": {
-            const response = await this.axiosInstance.get('/api/dashboard');
+            const response = await this.axiosInstance.get("/api/dashboard");
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
@@ -527,20 +687,85 @@ class MetabaseServer {
             const f = request.params?.arguments?.f || "all";
             const response = await this.axiosInstance.get(`/api/card?f=${f}`);
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
           case "list_databases": {
-            const response = await this.axiosInstance.get('/api/database');
+            const response = await this.axiosInstance.get("/api/database");
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "get_database": {
+            const databaseId = request.params?.arguments?.database_id;
+            if (!databaseId) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Database ID is required",
+              );
+            }
+
+            const response = await this.axiosInstance.get(
+              `/api/database/${databaseId}`,
+            );
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "get_database_metadata": {
+            const databaseId = request.params?.arguments?.database_id;
+            if (!databaseId) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Database ID is required",
+              );
+            }
+
+            const response = await this.axiosInstance.get(
+              `/api/database/${databaseId}/metadata`,
+            );
+
+            // Filter to only include table names/IDs and field names/IDs
+            const filteredData = {
+              id: response.data.id,
+              name: response.data.name,
+              tables:
+                response.data.tables?.map((table: any) => ({
+                  id: table.id,
+                  name: table.name,
+                  fields:
+                    table.fields?.map((field: any) => ({
+                      id: field.id,
+                      name: field.name,
+                    })) || [],
+                })) || [],
+            };
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(filteredData, null, 2),
+                },
+              ],
             };
           }
 
@@ -549,18 +774,23 @@ class MetabaseServer {
             if (!cardId) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Card ID is required"
+                "Card ID is required",
               );
             }
 
             const parameters = request.params?.arguments?.parameters || {};
-            const response = await this.axiosInstance.post(`/api/card/${cardId}/query`, { parameters });
-            
+            const response = await this.axiosInstance.post(
+              `/api/card/${cardId}/query`,
+              { parameters },
+            );
+
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
@@ -569,66 +799,88 @@ class MetabaseServer {
             if (!dashboardId) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Dashboard ID is required"
+                "Dashboard ID is required",
               );
             }
 
-            const response = await this.axiosInstance.get(`/api/dashboard/${dashboardId}`);
-            
+            const response = await this.axiosInstance.get(
+              `/api/dashboard/${dashboardId}`,
+            );
+
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data.cards, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data.cards, null, 2),
+                },
+              ],
             };
           }
-          
+
           case "execute_query": {
             const databaseId = request.params?.arguments?.database_id;
             const query = request.params?.arguments?.query;
-            const nativeParameters = request.params?.arguments?.native_parameters || [];
-            
+            const nativeParameters =
+              request.params?.arguments?.native_parameters || [];
+
             if (!databaseId) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Database ID is required"
+                "Database ID is required",
               );
             }
-            
+
             if (!query) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "SQL query is required"
+                "SQL query is required",
               );
             }
-            
+
             // 构建查询请求体
             const queryData = {
               type: "native",
               native: {
                 query: query,
-                template_tags: {}
+                template_tags: {},
               },
               parameters: nativeParameters,
-              database: databaseId
+              database: databaseId,
             };
-            
-            const response = await this.axiosInstance.post('/api/dataset', queryData);
-            
+
+            const response = await this.axiosInstance.post(
+              "/api/dataset",
+              queryData,
+            );
+
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
           case "create_card": {
-            const { name, dataset_query, display, visualization_settings, collection_id, description } = request.params?.arguments || {};
-            if (!name || !dataset_query || !display || !visualization_settings) {
+            const {
+              name,
+              dataset_query,
+              display,
+              visualization_settings,
+              collection_id,
+              description,
+            } = request.params?.arguments || {};
+            if (
+              !name ||
+              !dataset_query ||
+              !display ||
+              !visualization_settings
+            ) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Missing required fields for create_card: name, dataset_query, display, visualization_settings"
+                "Missing required fields for create_card: name, dataset_query, display, visualization_settings",
               );
             }
             const createCardBody: any = {
@@ -637,165 +889,215 @@ class MetabaseServer {
               display,
               visualization_settings,
             };
-            if (collection_id !== undefined) createCardBody.collection_id = collection_id;
-            if (description !== undefined) createCardBody.description = description;
+            if (collection_id !== undefined)
+              createCardBody.collection_id = collection_id;
+            if (description !== undefined)
+              createCardBody.description = description;
 
-            const response = await this.axiosInstance.post('/api/card', createCardBody);
+            const response = await this.axiosInstance.post(
+              "/api/card",
+              createCardBody,
+            );
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
           case "update_card": {
-            const { card_id, ...updateFields } = request.params?.arguments || {};
+            const { card_id, ...updateFields } =
+              request.params?.arguments || {};
             if (!card_id) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Card ID is required for update_card"
+                "Card ID is required for update_card",
               );
             }
             if (Object.keys(updateFields).length === 0) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "No fields provided for update_card"
+                "No fields provided for update_card",
               );
             }
-            const response = await this.axiosInstance.put(`/api/card/${card_id}`, updateFields);
+            const response = await this.axiosInstance.put(
+              `/api/card/${card_id}`,
+              updateFields,
+            );
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
           case "delete_card": {
-            const { card_id, hard_delete = false } = request.params?.arguments || {};
+            const { card_id, hard_delete = false } =
+              request.params?.arguments || {};
             if (!card_id) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Card ID is required for delete_card"
+                "Card ID is required for delete_card",
               );
             }
 
             if (hard_delete) {
               await this.axiosInstance.delete(`/api/card/${card_id}`);
               return {
-                content: [{
-                  type: "text",
-                  text: `Card ${card_id} permanently deleted.`
-                }]
+                content: [
+                  {
+                    type: "text",
+                    text: `Card ${card_id} permanently deleted.`,
+                  },
+                ],
               };
             } else {
               // Soft delete (archive)
-              const response = await this.axiosInstance.put(`/api/card/${card_id}`, { archived: true });
+              const response = await this.axiosInstance.put(
+                `/api/card/${card_id}`,
+                { archived: true },
+              );
               return {
-                content: [{
-                  type: "text",
-                  // Metabase might return the updated card object or just a success status.
-                  // If response.data is available and meaningful, include it. Otherwise, a generic success message.
-                  text: response.data ? `Card ${card_id} archived. Details: ${JSON.stringify(response.data, null, 2)}` : `Card ${card_id} archived.`
-                }]
+                content: [
+                  {
+                    type: "text",
+                    // Metabase might return the updated card object or just a success status.
+                    // If response.data is available and meaningful, include it. Otherwise, a generic success message.
+                    text: response.data
+                      ? `Card ${card_id} archived. Details: ${JSON.stringify(response.data, null, 2)}`
+                      : `Card ${card_id} archived.`,
+                  },
+                ],
               };
             }
           }
 
           case "create_dashboard": {
-            const { name, description, parameters, collection_id } = request.params?.arguments || {};
+            const { name, description, parameters, collection_id } =
+              request.params?.arguments || {};
             if (!name) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Missing required field for create_dashboard: name"
+                "Missing required field for create_dashboard: name",
               );
             }
             const createDashboardBody: any = { name };
-            if (description !== undefined) createDashboardBody.description = description;
-            if (parameters !== undefined) createDashboardBody.parameters = parameters;
-            if (collection_id !== undefined) createDashboardBody.collection_id = collection_id;
+            if (description !== undefined)
+              createDashboardBody.description = description;
+            if (parameters !== undefined)
+              createDashboardBody.parameters = parameters;
+            if (collection_id !== undefined)
+              createDashboardBody.collection_id = collection_id;
 
-            const response = await this.axiosInstance.post('/api/dashboard', createDashboardBody);
+            const response = await this.axiosInstance.post(
+              "/api/dashboard",
+              createDashboardBody,
+            );
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
           case "update_dashboard": {
-            const { dashboard_id, ...updateFields } = request.params?.arguments || {};
+            const { dashboard_id, ...updateFields } =
+              request.params?.arguments || {};
             if (!dashboard_id) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Dashboard ID is required for update_dashboard"
+                "Dashboard ID is required for update_dashboard",
               );
             }
             if (Object.keys(updateFields).length === 0) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "No fields provided for update_dashboard"
+                "No fields provided for update_dashboard",
               );
             }
-            const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, updateFields);
+            const response = await this.axiosInstance.put(
+              `/api/dashboard/${dashboard_id}`,
+              updateFields,
+            );
             return {
-              content: [{
-                type: "text",
-                text: JSON.stringify(response.data, null, 2)
-              }]
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
             };
           }
 
           case "delete_dashboard": {
-            const { dashboard_id, hard_delete = false } = request.params?.arguments || {};
+            const { dashboard_id, hard_delete = false } =
+              request.params?.arguments || {};
             if (!dashboard_id) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Dashboard ID is required for delete_dashboard"
+                "Dashboard ID is required for delete_dashboard",
               );
             }
 
             if (hard_delete) {
               await this.axiosInstance.delete(`/api/dashboard/${dashboard_id}`);
               return {
-                content: [{
-                  type: "text",
-                  text: `Dashboard ${dashboard_id} permanently deleted.`
-                }]
+                content: [
+                  {
+                    type: "text",
+                    text: `Dashboard ${dashboard_id} permanently deleted.`,
+                  },
+                ],
               };
             } else {
               // Soft delete (archive)
-              const response = await this.axiosInstance.put(`/api/dashboard/${dashboard_id}`, { archived: true });
-               return {
-                content: [{
-                  type: "text",
-                  text: response.data ? `Dashboard ${dashboard_id} archived. Details: ${JSON.stringify(response.data, null, 2)}` : `Dashboard ${dashboard_id} archived.`
-                }]
+              const response = await this.axiosInstance.put(
+                `/api/dashboard/${dashboard_id}`,
+                { archived: true },
+              );
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: response.data
+                      ? `Dashboard ${dashboard_id} archived. Details: ${JSON.stringify(response.data, null, 2)}`
+                      : `Dashboard ${dashboard_id} archived.`,
+                  },
+                ],
               };
             }
           }
-          
+
           default:
             return {
               content: [
                 {
                   type: "text",
-                  text: `Unknown tool: ${request.params?.name}`
-                }
+                  text: `Unknown tool: ${request.params?.name}`,
+                },
               ],
-              isError: true
+              isError: true,
             };
         }
       } catch (error) {
         if (axios.isAxiosError(error)) {
           return {
-            content: [{
-              type: "text",
-              text: `Metabase API error: ${error.response?.data?.message || error.message}`
-            }],
-            isError: true
+            content: [
+              {
+                type: "text",
+                text: `Metabase API error: ${error.response?.data?.message || error.message}`,
+              },
+            ],
+            isError: true,
           };
         }
         throw error;
@@ -805,38 +1107,46 @@ class MetabaseServer {
 
   async run() {
     try {
-      this.logInfo('Starting Metabase MCP server...');
+      this.logInfo("Starting Metabase MCP server...");
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
-      this.logInfo('Metabase MCP server running on stdio');
+      this.logInfo("Metabase MCP server running on stdio");
     } catch (error) {
-      this.logError('Failed to start server', error);
+      this.logError("Failed to start server", error);
       throw error;
     }
   }
 }
 
 // Add global error handlers
-process.on('uncaughtException', (error: Error) => {
-  console.error(JSON.stringify({
-    timestamp: new Date().toISOString(),
-    level: 'fatal',
-    message: 'Uncaught Exception',
-    error: error.message,
-    stack: error.stack
-  }));
+process.on("uncaughtException", (error: Error) => {
+  console.error(
+    JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "fatal",
+      message: "Uncaught Exception",
+      error: error.message,
+      stack: error.stack,
+    }),
+  );
   process.exit(1);
 });
 
-process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
-  const errorMessage = reason instanceof Error ? reason.message : String(reason);
-  console.error(JSON.stringify({
-    timestamp: new Date().toISOString(),
-    level: 'fatal',
-    message: 'Unhandled Rejection',
-    error: errorMessage
-  }));
-});
+process.on(
+  "unhandledRejection",
+  (reason: unknown, promise: Promise<unknown>) => {
+    const errorMessage =
+      reason instanceof Error ? reason.message : String(reason);
+    console.error(
+      JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: "fatal",
+        message: "Unhandled Rejection",
+        error: errorMessage,
+      }),
+    );
+  },
+);
 
 const server = new MetabaseServer();
 server.run().catch(console.error);
