@@ -664,6 +664,99 @@ class MetabaseServer {
               required: ["dashboard_id"],
             },
           },
+          {
+            name: "add_card_to_dashboard",
+            description: "Add an existing card to a dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: {
+                  type: "number",
+                  description: "ID of the dashboard to add the card to",
+                },
+                card_id: {
+                  type: "number",
+                  description: "ID of the card to add",
+                },
+                row: {
+                  type: "number",
+                  description: "Row position (default: 0)",
+                  default: 0,
+                },
+                col: {
+                  type: "number",
+                  description: "Column position (default: 0)",
+                  default: 0,
+                },
+                size_x: {
+                  type: "number",
+                  description: "Width in grid units (default: 4)",
+                  default: 4,
+                },
+                size_y: {
+                  type: "number",
+                  description: "Height in grid units (default: 4)",
+                  default: 4,
+                },
+              },
+              required: ["dashboard_id", "card_id"],
+            },
+          },
+          {
+            name: "remove_card_from_dashboard",
+            description:
+              "Remove a card from a dashboard (does not delete the card itself, just removes it from the dashboard).",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: {
+                  type: "number",
+                  description: "ID of the dashboard",
+                },
+                dashcard_id: {
+                  type: "number",
+                  description:
+                    "ID of the dashboard card (dashcard) to remove. Use get_dashboard_cards to find this ID.",
+                },
+              },
+              required: ["dashboard_id", "dashcard_id"],
+            },
+          },
+          {
+            name: "update_dashboard_card",
+            description:
+              "Update the position or size of a card in a dashboard.",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: {
+                  type: "number",
+                  description: "ID of the dashboard",
+                },
+                dashcard_id: {
+                  type: "number",
+                  description: "ID of the dashboard card to update",
+                },
+                row: {
+                  type: "number",
+                  description: "New row position",
+                },
+                col: {
+                  type: "number",
+                  description: "New column position",
+                },
+                size_x: {
+                  type: "number",
+                  description: "New width in grid units",
+                },
+                size_y: {
+                  type: "number",
+                  description: "New height in grid units",
+                },
+              },
+              required: ["dashboard_id", "dashcard_id"],
+            },
+          },
         ],
       };
     });
@@ -1112,6 +1205,125 @@ class MetabaseServer {
                 ],
               };
             }
+          }
+
+          case "add_card_to_dashboard": {
+            const {
+              dashboard_id,
+              card_id,
+              row = 0,
+              col = 0,
+              size_x = 4,
+              size_y = 4,
+            } = request.params?.arguments || {};
+
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required for add_card_to_dashboard",
+              );
+            }
+
+            if (!card_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Card ID is required for add_card_to_dashboard",
+              );
+            }
+
+            const addCardBody = {
+              cardId: card_id,
+              row,
+              col,
+              size_x,
+              size_y,
+            };
+
+            const response = await this.axiosInstance.post(
+              `/api/dashboard/${dashboard_id}/cards`,
+              addCardBody,
+            );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "remove_card_from_dashboard": {
+            const { dashboard_id, dashcard_id } =
+              request.params?.arguments || {};
+
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required for remove_card_from_dashboard",
+              );
+            }
+
+            if (!dashcard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashcard ID is required for remove_card_from_dashboard",
+              );
+            }
+
+            await this.axiosInstance.delete(
+              `/api/dashboard/${dashboard_id}/cards/${dashcard_id}`,
+            );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `Card ${dashcard_id} removed from dashboard ${dashboard_id}.`,
+                },
+              ],
+            };
+          }
+
+          case "update_dashboard_card": {
+            const { dashboard_id, dashcard_id, ...updateFields } =
+              request.params?.arguments || {};
+
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required for update_dashboard_card",
+              );
+            }
+
+            if (!dashcard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashcard ID is required for update_dashboard_card",
+              );
+            }
+
+            if (Object.keys(updateFields).length === 0) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "No fields provided for update_dashboard_card",
+              );
+            }
+
+            const response = await this.axiosInstance.put(
+              `/api/dashboard/${dashboard_id}/cards/${dashcard_id}`,
+              updateFields,
+            );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
           }
 
           default:
