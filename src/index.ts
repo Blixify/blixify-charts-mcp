@@ -504,23 +504,27 @@ class MetabaseServer {
           {
             name: "create_card",
             description:
-              'Create a new Metabase question (card). For MongoDB date filtering with template tags: use string comparison instead of date objects. Convert dates to ISO strings with $dateToString, then use template tags WITHOUT quotes in the query (e.g., {"$gte": {{date_start}}}). Set template tag defaults WITH quotes (e.g., default: \'"2020-01-01T00:00:00.000Z"\'). This allows Metabase to properly substitute date values from dashboard parameters.',
+              'Create a new Metabase question (card) that will appear in collections. For dashboard-only cards, use create_dashboard_only_card instead. For MongoDB queries, use format: {"database": 4, "lib/type": "mbql/query", "stages": [{"collection": "collection-name", "lib/type": "mbql.stage/native", "native": "[{...}]"}]}. For MongoDB date filtering with template tags: use string comparison instead of date objects. Convert dates to ISO strings with $dateToString, then use template tags WITHOUT quotes in the query (e.g., {"$gte": {{date_start}}}). Set template tag defaults WITH quotes (e.g., default: \'"2020-01-01T00:00:00.000Z"\'). This allows Metabase to properly substitute date values from dashboard parameters.',
             inputSchema: {
               type: "object",
               properties: {
                 name: { type: "string", description: "Name of the card" },
                 dataset_query: {
                   type: "object",
+                  additionalProperties: true,
                   description:
-                    "The query for the card (e.g., MBQL or native query)",
+                    'The query for the card. For MongoDB: {"database": 4, "lib/type": "mbql/query", "stages": [{"collection": "collection-name", "lib/type": "mbql.stage/native", "native": "[{...}]"}]}',
                 },
                 display: {
                   type: "string",
-                  description: "Display type (e.g., 'table', 'line', 'bar')",
+                  description:
+                    "Display type (e.g., 'table', 'line', 'bar', 'pie', 'scalar')",
                 },
                 visualization_settings: {
                   type: "object",
-                  description: "Settings for the visualization",
+                  additionalProperties: true,
+                  description:
+                    'Settings for the visualization (e.g., {"graph.dimensions": ["field"], "graph.metrics": ["count"]})',
                 },
                 collection_id: {
                   type: "number",
@@ -783,7 +787,7 @@ class MetabaseServer {
           {
             name: "create_dashboard_only_card",
             description:
-              'Create a virtual card that exists only within a dashboard and does not appear in any collection. This is useful for dashboard-specific visualizations. For MongoDB date filtering with template tags: use string comparison instead of date objects. Convert dates to ISO strings with $dateToString, then use template tags WITHOUT quotes in the query (e.g., {"$gte": {{date_start}}}). Set template tag defaults WITH quotes (e.g., default: \'"2020-01-01T00:00:00.000Z"\'). This allows Metabase to properly substitute date values from dashboard parameters.',
+              'Create a virtual card that exists only within a dashboard and does not appear in any collection. This is useful for dashboard-specific visualizations. For MongoDB queries, use format: {"database": 4, "lib/type": "mbql/query", "stages": [{"collection": "collection-name", "lib/type": "mbql.stage/native", "native": "[{...}]"}]}. For MongoDB date filtering with template tags: use string comparison instead of date objects. Convert dates to ISO strings with $dateToString, then use template tags WITHOUT quotes in the query (e.g., {"$gte": {{date_start}}}). Set template tag defaults WITH quotes (e.g., default: \'"2020-01-01T00:00:00.000Z"\'). This allows Metabase to properly substitute date values from dashboard parameters.',
             inputSchema: {
               type: "object",
               properties: {
@@ -797,8 +801,9 @@ class MetabaseServer {
                 },
                 dataset_query: {
                   type: "object",
+                  additionalProperties: true,
                   description:
-                    "The query for the card (e.g., MBQL or native query)",
+                    'The query for the card. For MongoDB: {"database": 4, "lib/type": "mbql/query", "stages": [{"collection": "collection-name", "lib/type": "mbql.stage/native", "native": "[{...}]"}]}',
                 },
                 display: {
                   type: "string",
@@ -807,7 +812,9 @@ class MetabaseServer {
                 },
                 visualization_settings: {
                   type: "object",
-                  description: "Settings for the visualization",
+                  additionalProperties: true,
+                  description:
+                    'Settings for the visualization (e.g., {"graph.dimensions": ["field"], "graph.metrics": ["count"]})',
                 },
                 row: {
                   type: "number",
