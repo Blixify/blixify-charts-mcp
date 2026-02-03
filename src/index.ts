@@ -1028,11 +1028,21 @@ class MetabaseServer {
               "/api/card",
               createCardBody,
             );
+
+            // Add a user-friendly link to view the card
+            const cardId = response.data.id;
+            const cardLink = `${METABASE_URL}/question/${cardId}`;
+            const resultWithLink = {
+              ...response.data,
+              _link: cardLink,
+              _message: `Card created successfully! View it at: ${cardLink}`,
+            };
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(resultWithLink, null, 2),
                 },
               ],
             };
@@ -1129,11 +1139,21 @@ class MetabaseServer {
               "/api/dashboard",
               createDashboardBody,
             );
+
+            // Add a user-friendly link to view the dashboard
+            const dashboardId = response.data.id;
+            const dashboardLink = `${METABASE_URL}/dashboard/${dashboardId}`;
+            const resultWithLink = {
+              ...response.data,
+              _link: dashboardLink,
+              _message: `Dashboard created successfully! View it at: ${dashboardLink}`,
+            };
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(resultWithLink, null, 2),
                 },
               ],
             };
