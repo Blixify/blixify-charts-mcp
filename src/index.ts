@@ -700,6 +700,11 @@ class MetabaseServer {
                   description: "Height in grid units (default: 4)",
                   default: 4,
                 },
+                dashboard_tab_id: {
+                  type: "number",
+                  description:
+                    "ID of the dashboard tab to add the card to (optional)",
+                },
               },
               required: ["dashboard_id", "card_id"],
             },
