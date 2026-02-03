@@ -753,6 +753,14 @@ class MetabaseServer {
                   type: "number",
                   description: "New height in grid units",
                 },
+                parameter_mappings: {
+                  type: "array",
+                  description:
+                    "Parameter mappings to connect dashboard filters to card template tags",
+                  items: {
+                    type: "object",
+                  },
+                },
               },
               required: ["dashboard_id", "dashcard_id"],
             },
@@ -908,11 +916,15 @@ class MetabaseServer {
               `/api/dashboard/${dashboardId}`,
             );
 
+            // Return dashcards (which is the correct field name in Metabase API)
+            const dashcards =
+              response.data.dashcards || response.data.cards || [];
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data.cards, null, 2),
+                  text: JSON.stringify(dashcards, null, 2),
                 },
               ],
             };
@@ -1251,17 +1263,48 @@ class MetabaseServer {
               );
             }
 
-            const addCardBody = {
-              cardId: card_id,
-              row,
-              col,
-              size_x,
-              size_y,
+            // First, get existing dashboard to retrieve current cards
+            const dashboardResponse = await this.axiosInstance.get(
+              `/api/dashboard/${dashboard_id}`,
+            );
+
+            // Extract existing cards (dashcards)
+            const existingCards = dashboardResponse.data.dashcards || [];
+
+            // Map existing cards to the format needed for PUT
+            const existingCardsFormatted = existingCards.map((dc: any) => ({
+              id: dc.id,
+              card_id: dc.card_id,
+              row: dc.row,
+              col: dc.col,
+              size_x: dc.size_x,
+              size_y: dc.size_y,
+              series: dc.series || [],
+              visualization_settings: dc.visualization_settings || {},
+              parameter_mappings: dc.parameter_mappings || [],
+            }));
+
+            // Add the new card with id=-1
+            const allCards = [
+              ...existingCardsFormatted,
+              {
+                id: -1,
+                card_id: card_id,
+                row: row,
+                col: col,
+                size_x: size_x,
+                size_y: size_y,
+              },
+            ];
+
+            // Metabase API requires PUT with all cards
+            const updateBody = {
+              cards: allCards,
             };
 
-            const response = await this.axiosInstance.post(
+            const response = await this.axiosInstance.put(
               `/api/dashboard/${dashboard_id}/cards`,
-              addCardBody,
+              updateBody,
             );
 
             return {
@@ -1307,8 +1350,12 @@ class MetabaseServer {
           }
 
           case "update_dashboard_card": {
-            const { dashboard_id, dashcard_id, ...updateFields } =
-              request.params?.arguments || {};
+            const {
+              dashboard_id,
+              dashcard_id,
+              parameter_mappings,
+              ...updateFields
+            } = request.params?.arguments || {};
 
             if (!dashboard_id) {
               throw new McpError(
@@ -1324,16 +1371,73 @@ class MetabaseServer {
               );
             }
 
-            if (Object.keys(updateFields).length === 0) {
+            if (
+              Object.keys(updateFields).length === 0 &&
+              parameter_mappings === undefined
+            ) {
               throw new McpError(
                 ErrorCode.InvalidParams,
                 "No fields provided for update_dashboard_card",
               );
             }
 
+            // First, get existing dashboard to retrieve current cards
+            const dashboardResponse = await this.axiosInstance.get(
+              `/api/dashboard/${dashboard_id}`,
+            );
+
+            // Extract existing cards (dashcards)
+            const existingCards = dashboardResponse.data.dashcards || [];
+
+            // Find and update the specific card
+            const updatedCards = existingCards.map((dc: any) => {
+              if (dc.id === dashcard_id) {
+                // Update this card with new fields
+                return {
+                  id: dc.id,
+                  card_id: dc.card_id,
+                  row:
+                    updateFields.row !== undefined ? updateFields.row : dc.row,
+                  col:
+                    updateFields.col !== undefined ? updateFields.col : dc.col,
+                  size_x:
+                    updateFields.size_x !== undefined
+                      ? updateFields.size_x
+                      : dc.size_x,
+                  size_y:
+                    updateFields.size_y !== undefined
+                      ? updateFields.size_y
+                      : dc.size_y,
+                  series: dc.series || [],
+                  visualization_settings: dc.visualization_settings || {},
+                  parameter_mappings:
+                    parameter_mappings !== undefined
+                      ? parameter_mappings
+                      : dc.parameter_mappings || [],
+                };
+              }
+              // Keep other cards as-is
+              return {
+                id: dc.id,
+                card_id: dc.card_id,
+                row: dc.row,
+                col: dc.col,
+                size_x: dc.size_x,
+                size_y: dc.size_y,
+                series: dc.series || [],
+                visualization_settings: dc.visualization_settings || {},
+                parameter_mappings: dc.parameter_mappings || [],
+              };
+            });
+
+            // PUT all cards back
+            const updateBody = {
+              cards: updatedCards,
+            };
+
             const response = await this.axiosInstance.put(
-              `/api/dashboard/${dashboard_id}/cards/${dashcard_id}`,
-              updateFields,
+              `/api/dashboard/${dashboard_id}/cards`,
+              updateBody,
             );
 
             return {
