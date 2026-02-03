@@ -495,7 +495,8 @@ class MetabaseServer {
           },
           {
             name: "create_card",
-            description: "Create a new Metabase question (card).",
+            description:
+              'Create a new Metabase question (card). For MongoDB date filtering with template tags: use string comparison instead of date objects. Convert dates to ISO strings with $dateToString, then use template tags WITHOUT quotes in the query (e.g., {"$gte": {{date_start}}}). Set template tag defaults WITH quotes (e.g., default: \'"2020-01-01T00:00:00.000Z"\'). This allows Metabase to properly substitute date values from dashboard parameters.',
             inputSchema: {
               type: "object",
               properties: {
@@ -533,7 +534,8 @@ class MetabaseServer {
           },
           {
             name: "update_card",
-            description: "Update an existing Metabase question (card).",
+            description:
+              'Update an existing Metabase question (card). For MongoDB date filtering with template tags: use string comparison instead of date objects. Convert dates to ISO strings with $dateToString, then use template tags WITHOUT quotes in the query (e.g., {"$gte": {{date_start}}}). Set template tag defaults WITH quotes (e.g., default: \'"2020-01-01T00:00:00.000Z"\'). This allows Metabase to properly substitute date values from dashboard parameters.',
             inputSchema: {
               type: "object",
               properties: {
@@ -725,7 +727,7 @@ class MetabaseServer {
           {
             name: "update_dashboard_card",
             description:
-              "Update the position or size of a card in a dashboard.",
+              'Update the position, size, or parameter mappings of a card in a dashboard. For date filtering: ensure card template tags are configured correctly (see create_card/update_card descriptions), then use parameter_mappings to connect dashboard date parameters to card template tags. Example mapping: [{"parameter_id": "date_start_param", "target": ["variable", ["template-tag", "date_start"]], "card_id": 99}]',
             inputSchema: {
               type: "object",
               properties: {
