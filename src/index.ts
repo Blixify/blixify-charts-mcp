@@ -400,6 +400,14 @@ class MetabaseServer {
             },
           },
           {
+            name: "list_collections",
+            description: "List all collections in Metabase",
+            inputSchema: {
+              type: "object",
+              properties: {},
+            },
+          },
+          {
             name: "get_database",
             description:
               "Get detailed information about a specific Metabase database including tables and schema",
@@ -772,13 +780,74 @@ class MetabaseServer {
               required: ["dashboard_id", "dashcard_id"],
             },
           },
+          {
+            name: "create_dashboard_only_card",
+            description:
+              'Create a virtual card that exists only within a dashboard and does not appear in any collection. This is useful for dashboard-specific visualizations. For MongoDB date filtering with template tags: use string comparison instead of date objects. Convert dates to ISO strings with $dateToString, then use template tags WITHOUT quotes in the query (e.g., {"$gte": {{date_start}}}). Set template tag defaults WITH quotes (e.g., default: \'"2020-01-01T00:00:00.000Z"\'). This allows Metabase to properly substitute date values from dashboard parameters.',
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: {
+                  type: "number",
+                  description: "ID of the dashboard to add the card to",
+                },
+                name: {
+                  type: "string",
+                  description: "Name of the card",
+                },
+                dataset_query: {
+                  type: "object",
+                  description:
+                    "The query for the card (e.g., MBQL or native query)",
+                },
+                display: {
+                  type: "string",
+                  description:
+                    "Display type (e.g., 'table', 'line', 'bar', 'pie', 'scalar')",
+                },
+                visualization_settings: {
+                  type: "object",
+                  description: "Settings for the visualization",
+                },
+                row: {
+                  type: "number",
+                  description: "Row position (default: 0)",
+                  default: 0,
+                },
+                col: {
+                  type: "number",
+                  description: "Column position (default: 0)",
+                  default: 0,
+                },
+                size_x: {
+                  type: "number",
+                  description: "Width in grid units (default: 4)",
+                  default: 4,
+                },
+                size_y: {
+                  type: "number",
+                  description: "Height in grid units (default: 4)",
+                  default: 4,
+                },
+              },
+              required: [
+                "dashboard_id",
+                "name",
+                "dataset_query",
+                "display",
+                "visualization_settings",
+              ],
+            },
+          },
         ],
       };
     });
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       this.logInfo("Calling tool...", {
-        requestStructure: JSON.stringify(request),
+        toolName: request.params?.name,
+        arguments: request.params?.arguments,
+        fullRequest: JSON.stringify(request),
       });
       if (!METABASE_API_KEY) {
         await this.getSessionToken();
@@ -813,6 +882,18 @@ class MetabaseServer {
 
           case "list_databases": {
             const response = await this.axiosInstance.get("/api/database");
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "list_collections": {
+            const response = await this.axiosInstance.get("/api/collection");
             return {
               content: [
                 {
@@ -1440,6 +1521,118 @@ class MetabaseServer {
             // PUT all cards back
             const updateBody = {
               cards: updatedCards,
+            };
+
+            const response = await this.axiosInstance.put(
+              `/api/dashboard/${dashboard_id}/cards`,
+              updateBody,
+            );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(response.data, null, 2),
+                },
+              ],
+            };
+          }
+
+          case "create_dashboard_only_card": {
+            // Debug logging
+            this.logInfo("create_dashboard_only_card called", {
+              arguments: request.params?.arguments,
+            });
+
+            const {
+              dashboard_id,
+              name,
+              dataset_query,
+              display,
+              visualization_settings,
+              row = 0,
+              col = 0,
+              size_x = 4,
+              size_y = 4,
+            } = request.params?.arguments || {};
+
+            this.logInfo("Extracted parameters", {
+              dashboard_id,
+              name,
+              dataset_query,
+              display,
+              visualization_settings,
+              row,
+              col,
+              size_x,
+              size_y,
+            });
+
+            if (!dashboard_id) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required for create_dashboard_only_card",
+              );
+            }
+
+            if (
+              !name ||
+              !dataset_query ||
+              !display ||
+              !visualization_settings
+            ) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Missing required fields: name, dataset_query, display, visualization_settings",
+              );
+            }
+
+            // Get existing dashboard to retrieve current cards
+            const dashboardResponse = await this.axiosInstance.get(
+              `/api/dashboard/${dashboard_id}`,
+            );
+
+            const existingCards = dashboardResponse.data.dashcards || [];
+
+            // Format existing cards
+            const existingCardsFormatted = existingCards.map((dc: any) => ({
+              id: dc.id,
+              card_id: dc.card_id,
+              row: dc.row,
+              col: dc.col,
+              size_x: dc.size_x,
+              size_y: dc.size_y,
+              series: dc.series || [],
+              visualization_settings: dc.visualization_settings || {},
+              parameter_mappings: dc.parameter_mappings || [],
+            }));
+
+            // Create virtual card (dashboard-only card)
+            const virtualCard = {
+              id: -1,
+              card_id: null, // null means it's a virtual card
+              row: row,
+              col: col,
+              size_x: size_x,
+              size_y: size_y,
+              series: [],
+              parameter_mappings: [],
+              visualization_settings: {
+                ...visualization_settings,
+                virtual_card: {
+                  name: name,
+                  display: display,
+                  visualization_settings: visualization_settings,
+                  dataset_query: dataset_query,
+                },
+              },
+            };
+
+            const allCards = [...existingCardsFormatted, virtualCard];
+
+            // Update dashboard with new virtual card
+            const updateBody = {
+              cards: allCards,
             };
 
             const response = await this.axiosInstance.put(
