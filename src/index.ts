@@ -536,12 +536,7 @@ class MetabaseServer {
                   description: "Optional description for the card",
                 },
               },
-              required: [
-                "name",
-                "dataset_query",
-                "display",
-                "visualization_settings",
-              ],
+              required: ["name", "dataset_query", "display"],
             },
           },
           {
@@ -1116,21 +1111,18 @@ class MetabaseServer {
               name,
               dataset_query,
               display,
-              visualization_settings,
+              visualization_settings = {},
               collection_id,
               description,
             } = request.params?.arguments || {};
-            if (
-              !name ||
-              !dataset_query ||
-              !display ||
-              !visualization_settings
-            ) {
+
+            if (!name || !dataset_query || !display) {
               throw new McpError(
                 ErrorCode.InvalidParams,
-                "Missing required fields for create_card: name, dataset_query, display, visualization_settings",
+                "Missing required fields for create_card: name, dataset_query, display",
               );
             }
+
             const createCardBody: any = {
               name,
               dataset_query,
