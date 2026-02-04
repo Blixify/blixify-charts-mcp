@@ -802,11 +802,19 @@ class MetabaseServer {
         switch (request.params?.name) {
           case "list_dashboards": {
             const response = await this.axiosInstance.get("/api/dashboard");
+            // Filter to only essential fields to reduce token usage
+            const filteredData = response.data.map((dashboard: any) => ({
+              id: dashboard.id,
+              name: dashboard.name,
+              description: dashboard.description,
+              collection_id: dashboard.collection_id,
+              archived: dashboard.archived,
+            }));
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -815,11 +823,21 @@ class MetabaseServer {
           case "list_cards": {
             const f = request.params?.arguments?.f || "all";
             const response = await this.axiosInstance.get(`/api/card?f=${f}`);
+            // Filter to only essential fields to reduce token usage
+            const filteredData = response.data.map((card: any) => ({
+              id: card.id,
+              name: card.name,
+              description: card.description,
+              display: card.display,
+              collection_id: card.collection_id,
+              database_id: card.database_id,
+              archived: card.archived,
+            }));
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -827,11 +845,17 @@ class MetabaseServer {
 
           case "list_databases": {
             const response = await this.axiosInstance.get("/api/database");
+            // Filter to only essential fields to reduce token usage
+            const filteredData = response.data.map((database: any) => ({
+              id: database.id,
+              name: database.name,
+              engine: database.engine,
+            }));
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -839,11 +863,18 @@ class MetabaseServer {
 
           case "list_collections": {
             const response = await this.axiosInstance.get("/api/collection");
+            // Filter to only essential fields to reduce token usage
+            const filteredData = response.data.map((collection: any) => ({
+              id: collection.id,
+              name: collection.name,
+              description: collection.description,
+              archived: collection.archived,
+            }));
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -861,11 +892,21 @@ class MetabaseServer {
             const response = await this.axiosInstance.get(
               `/api/database/${databaseId}`,
             );
+            // Filter to only essential fields to reduce token usage
+            const filteredData = {
+              id: response.data.id,
+              name: response.data.name,
+              engine: response.data.engine,
+              tables: response.data.tables?.map((table: any) => ({
+                id: table.id,
+                name: table.name,
+              })),
+            };
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -926,11 +967,18 @@ class MetabaseServer {
               { parameters },
             );
 
+            // Filter to only essential fields to reduce token usage
+            const filteredData = {
+              data: response.data.data || {},
+              row_count: response.data.row_count,
+              status: response.data.status,
+            };
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -953,11 +1001,29 @@ class MetabaseServer {
             const dashcards =
               response.data.dashcards || response.data.cards || [];
 
+            // Filter to only essential fields to reduce token usage
+            const filteredDashcards = dashcards.map((dc: any) => ({
+              id: dc.id,
+              card_id: dc.card_id,
+              row: dc.row,
+              col: dc.col,
+              size_x: dc.size_x,
+              size_y: dc.size_y,
+              card: dc.card
+                ? {
+                    id: dc.card.id,
+                    name: dc.card.name,
+                    display: dc.card.display,
+                  }
+                : undefined,
+              parameter_mappings: dc.parameter_mappings || [],
+            }));
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(dashcards, null, 2),
+                  text: JSON.stringify(filteredDashcards, null, 2),
                 },
               ],
             };
@@ -1028,11 +1094,18 @@ class MetabaseServer {
               queryData,
             );
 
+            // Filter to only essential fields to reduce token usage
+            const filteredData = {
+              data: response.data.data || {},
+              row_count: response.data.row_count,
+              status: response.data.status,
+            };
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -1078,7 +1151,10 @@ class MetabaseServer {
             const cardId = response.data.id;
             const cardLink = `${METABASE_URL}/question/${cardId}`;
             const resultWithLink = {
-              ...response.data,
+              id: response.data.id,
+              name: response.data.name,
+              display: response.data.display,
+              collection_id: response.data.collection_id,
               _link: cardLink,
               _message: `Card created successfully! View it at: ${cardLink}`,
             };
@@ -1112,11 +1188,19 @@ class MetabaseServer {
               `/api/card/${card_id}`,
               updateFields,
             );
+            // Filter to only essential fields to reduce token usage
+            const filteredData = {
+              id: response.data.id,
+              name: response.data.name,
+              display: response.data.display,
+              collection_id: response.data.collection_id,
+              archived: response.data.archived,
+            };
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -1189,7 +1273,10 @@ class MetabaseServer {
             const dashboardId = response.data.id;
             const dashboardLink = `${METABASE_URL}/dashboard/${dashboardId}`;
             const resultWithLink = {
-              ...response.data,
+              id: response.data.id,
+              name: response.data.name,
+              description: response.data.description,
+              collection_id: response.data.collection_id,
               _link: dashboardLink,
               _message: `Dashboard created successfully! View it at: ${dashboardLink}`,
             };
@@ -1223,11 +1310,19 @@ class MetabaseServer {
               `/api/dashboard/${dashboard_id}`,
               updateFields,
             );
+            // Filter to only essential fields to reduce token usage
+            const filteredData = {
+              id: response.data.id,
+              name: response.data.name,
+              description: response.data.description,
+              collection_id: response.data.collection_id,
+              archived: response.data.archived,
+            };
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -1340,11 +1435,23 @@ class MetabaseServer {
               updateBody,
             );
 
+            // Filter to only essential fields to reduce token usage
+            const filteredData = {
+              cards: response.data.cards?.map((dc: any) => ({
+                id: dc.id,
+                card_id: dc.card_id,
+                row: dc.row,
+                col: dc.col,
+                size_x: dc.size_x,
+                size_y: dc.size_y,
+              })),
+            };
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
@@ -1473,11 +1580,24 @@ class MetabaseServer {
               updateBody,
             );
 
+            // Filter to only essential fields to reduce token usage
+            const filteredData = {
+              cards: response.data.cards?.map((dc: any) => ({
+                id: dc.id,
+                card_id: dc.card_id,
+                row: dc.row,
+                col: dc.col,
+                size_x: dc.size_x,
+                size_y: dc.size_y,
+                parameter_mappings: dc.parameter_mappings || [],
+              })),
+            };
+
             return {
               content: [
                 {
                   type: "text",
-                  text: JSON.stringify(response.data, null, 2),
+                  text: JSON.stringify(filteredData, null, 2),
                 },
               ],
             };
