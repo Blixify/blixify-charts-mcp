@@ -470,6 +470,21 @@ class MetabaseServer {
             },
           },
           {
+            name: "get_dashboard",
+            description:
+              "Get full dashboard details including tabs, cards, and parameters",
+            inputSchema: {
+              type: "object",
+              properties: {
+                dashboard_id: {
+                  type: "number",
+                  description: "ID of the dashboard",
+                },
+              },
+              required: ["dashboard_id"],
+            },
+          },
+          {
             name: "execute_query",
             description:
               "Execute a SQL query against a Metabase database, or MongoDB aggregation pipeline against MongoDB databases",
@@ -1024,6 +1039,39 @@ class MetabaseServer {
             };
           }
 
+          case "get_dashboard": {
+            const dashboardId = request.params?.arguments?.dashboard_id;
+            if (!dashboardId) {
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                "Dashboard ID is required",
+              );
+            }
+
+            const response = await this.axiosInstance.get(
+              `/api/dashboard/${dashboardId}`,
+            );
+
+            // Return full dashboard details including tabs
+            const filteredData = {
+              id: response.data.id,
+              name: response.data.name,
+              description: response.data.description,
+              tabs: response.data.tabs || [],
+              parameters: response.data.parameters || [],
+              dashcards_count: (response.data.dashcards || []).length,
+            };
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(filteredData, null, 2),
+                },
+              ],
+            };
+          }
+
           case "execute_query": {
             const databaseId = request.params?.arguments?.database_id;
             const query = request.params?.arguments?.query;
@@ -1367,6 +1415,7 @@ class MetabaseServer {
               col = 0,
               size_x = 4,
               size_y = 4,
+              dashboard_tab_id,
             } = request.params?.arguments || {};
 
             if (!dashboard_id) {
@@ -1383,13 +1432,14 @@ class MetabaseServer {
               );
             }
 
-            // First, get existing dashboard to retrieve current cards
+            // First, get existing dashboard to retrieve current cards and tabs
             const dashboardResponse = await this.axiosInstance.get(
               `/api/dashboard/${dashboard_id}`,
             );
 
-            // Extract existing cards (dashcards)
+            // Extract existing cards (dashcards) and tabs
             const existingCards = dashboardResponse.data.dashcards || [];
+            const existingTabs = dashboardResponse.data.tabs || [];
 
             // Map existing cards to the format needed for PUT
             const existingCardsFormatted = existingCards.map((dc: any) => ({
@@ -1402,25 +1452,35 @@ class MetabaseServer {
               series: dc.series || [],
               visualization_settings: dc.visualization_settings || {},
               parameter_mappings: dc.parameter_mappings || [],
+              dashboard_tab_id: dc.dashboard_tab_id || null,
             }));
 
             // Add the new card with id=-1
-            const allCards = [
-              ...existingCardsFormatted,
-              {
-                id: -1,
-                card_id: card_id,
-                row: row,
-                col: col,
-                size_x: size_x,
-                size_y: size_y,
-              },
-            ];
+            const newCard: any = {
+              id: -1,
+              card_id: card_id,
+              row: row,
+              col: col,
+              size_x: size_x,
+              size_y: size_y,
+            };
 
-            // Metabase API requires PUT with all cards
-            const updateBody = {
+            // Add dashboard_tab_id if provided
+            if (dashboard_tab_id !== undefined) {
+              newCard.dashboard_tab_id = dashboard_tab_id;
+            }
+
+            const allCards = [...existingCardsFormatted, newCard];
+
+            // Metabase API requires PUT with all cards AND tabs if tabs exist
+            const updateBody: any = {
               cards: allCards,
             };
+
+            // Include tabs if they exist
+            if (existingTabs.length > 0) {
+              updateBody.tabs = existingTabs;
+            }
 
             const response = await this.axiosInstance.put(
               `/api/dashboard/${dashboard_id}/cards`,
@@ -1436,6 +1496,7 @@ class MetabaseServer {
                 col: dc.col,
                 size_x: dc.size_x,
                 size_y: dc.size_y,
+                dashboard_tab_id: dc.dashboard_tab_id,
               })),
             };
 
@@ -1513,13 +1574,14 @@ class MetabaseServer {
               );
             }
 
-            // First, get existing dashboard to retrieve current cards
+            // First, get existing dashboard to retrieve current cards and tabs
             const dashboardResponse = await this.axiosInstance.get(
               `/api/dashboard/${dashboard_id}`,
             );
 
-            // Extract existing cards (dashcards)
+            // Extract existing cards (dashcards) and tabs
             const existingCards = dashboardResponse.data.dashcards || [];
+            const existingTabs = dashboardResponse.data.tabs || [];
 
             // Find and update the specific card
             const updatedCards = existingCards.map((dc: any) => {
@@ -1546,6 +1608,7 @@ class MetabaseServer {
                     parameter_mappings !== undefined
                       ? parameter_mappings
                       : dc.parameter_mappings || [],
+                  dashboard_tab_id: dc.dashboard_tab_id || null,
                 };
               }
               // Keep other cards as-is
@@ -1559,13 +1622,19 @@ class MetabaseServer {
                 series: dc.series || [],
                 visualization_settings: dc.visualization_settings || {},
                 parameter_mappings: dc.parameter_mappings || [],
+                dashboard_tab_id: dc.dashboard_tab_id || null,
               };
             });
 
-            // PUT all cards back
-            const updateBody = {
+            // PUT all cards back with tabs if they exist
+            const updateBody: any = {
               cards: updatedCards,
             };
+
+            // Include tabs if they exist
+            if (existingTabs.length > 0) {
+              updateBody.tabs = existingTabs;
+            }
 
             const response = await this.axiosInstance.put(
               `/api/dashboard/${dashboard_id}/cards`,
