@@ -855,8 +855,10 @@ class MetabaseServer {
 
           case "list_databases": {
             const response = await this.axiosInstance.get("/api/database");
-            // Filter to only essential fields to reduce token usage
-            const filteredData = response.data.map((database: any) => ({
+            const databases = Array.isArray(response.data)
+              ? response.data
+              : response.data.data || [];
+            const filteredData = databases.map((database: any) => ({
               id: database.id,
               name: database.name,
               engine: database.engine,
